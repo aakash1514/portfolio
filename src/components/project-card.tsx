@@ -10,7 +10,15 @@ export function ProjectCard({ project, large = false }: { project: Project; larg
     >
       <div className="flex items-center justify-between gap-3">
         <p className="font-mono text-xs text-faint">{project.kind}</p>
-        <p className="font-mono text-xs text-faint">{project.period}</p>
+        <div className="flex shrink-0 items-center gap-2">
+          {project.live && (
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-[11px] text-accent">
+              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-accent" />
+              Live
+            </span>
+          )}
+          <p className="font-mono text-xs text-faint">{project.period}</p>
+        </div>
       </div>
       <h3 className={`mt-3 font-semibold tracking-tight ${large ? "text-2xl" : "text-xl"}`}>{project.title}</h3>
       <p className="mt-2 text-sm leading-relaxed text-muted">{project.tagline}</p>

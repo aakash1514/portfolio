@@ -8,7 +8,7 @@ import { ArrowIcon, ButtonLink, Chip, Container, GitHubIcon, Label } from "@/com
 const proof = [
   { value: "0 / 1,790", label: "mismatches between backtest and live decisions (QuantAxis)" },
   { value: "689 / 689", label: "backtest trades reproduced by independent SQL (ForexEdge)" },
-  { value: "77% → 93%", label: "LLM eval pass rate after prompt iteration, CI-gated (QuantAxis)" },
+  { value: "17% → 83%", label: "merge-gate block recall with 0 false blocks (Code Review Agent)" },
 ];
 
 export default function Home() {
