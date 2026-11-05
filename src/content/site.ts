@@ -173,7 +173,7 @@ export const experience: {
   {
     period: "2022 – 2026",
     role: "B.Tech, Computer Science",
-    org: "NKOCET Pune (DBATU)",
+    org: "NKOCET Solapur (DBATU)",
     points: [
       "Co-inventor on a published patent, Roadwatch: AI-driven monitoring analytics for transportation networks (Application No. 202521048351, June 2025). Built the data pipeline and AI model, designed the architecture and wrote the technical documentation for filing.",
       "Major project: AgriFlow, a four-role agri marketplace on web and mobile with ML price and demand forecasts, built and deployed solo.",
