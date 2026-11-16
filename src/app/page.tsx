@@ -6,7 +6,7 @@ import { ProjectCard } from "@/components/project-card";
 import { ArrowIcon, ButtonLink, Chip, Container, GitHubIcon, Label } from "@/components/ui";
 
 const proof = [
-  { value: "0 / 1,790", label: "mismatches between backtest and live decisions (QuantAxis)" },
+  { value: "0 / 1,790", label: "backtest–live mismatches over H1 clock closes (QuantAxis)" },
   { value: "689 / 689", label: "backtest trades reproduced by independent SQL (ForexEdge)" },
   { value: "17% → 83%", label: "merge-gate block recall with 0 false blocks (Code Review Agent)" },
 ];

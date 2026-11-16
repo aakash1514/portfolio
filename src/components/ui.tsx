@@ -48,6 +48,14 @@ export function GitHubIcon() {
   );
 }
 
+export function PlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="currentColor">
+      <path d="M4.5 2.8v10.4L13 8z" />
+    </svg>
+  );
+}
+
 export function ArrowIcon() {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6">

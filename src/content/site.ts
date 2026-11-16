@@ -8,7 +8,7 @@ export const site = {
     "AI engineer and full-stack developer. I design LangGraph agents and RAG pipelines, then build the APIs, databases, frontends and deployments that turn them into products. My rule: the LLM interprets, deterministic code decides, and every number is checked before anyone sees it.",
   github: "https://github.com/aakash1514",
   email: "aakashdevkar777@gmail.com",
-  linkedin: "https://linkedin.com/in/aakash-devkar-2a7810327",
+  linkedin: "https://www.linkedin.com/in/aakash-devkar",
   resume: "/Aakash_Devkar_Resume.pdf",
   url: "https://aakash-devkar.vercel.app",
 };
@@ -62,6 +62,7 @@ export const skills: { group: string; items: string[] }[] = [
       "WebSockets",
       "Socket.IO",
       "REST APIs",
+      "Swagger / OpenAPI",
       "JWT/OAuth",
       "RBAC",
       "GitHub Apps",
@@ -90,7 +91,7 @@ export const skills: { group: string; items: string[] }[] = [
   {
     group: "Cloud & DevOps",
     items: [
-      "AWS (Cloud Practitioner)",
+      "AWS (Cloud Practitioner Essentials course)",
       "S3",
       "EC2",
       "ECS",
@@ -121,6 +122,7 @@ export const skills: { group: string; items: string[] }[] = [
       "Vitest",
       "Hypothesis",
       "k6",
+      "Postman",
       "mypy",
       "Ruff",
       "Trivy",
@@ -131,9 +133,12 @@ export const skills: { group: string; items: string[] }[] = [
     ],
   },
   {
-    group: "Leadership & communication",
+    group: "Ways of working",
+    items: ["Agile / Scrum", "Jira"],
+  },
+  {
+    group: "Communication",
     items: [
-      "Team leadership (8 people)",
       "Technical writing & runbooks",
       "Patent documentation",
       "Presenting to clients",
@@ -157,6 +162,7 @@ export const experience: {
       "Added a Redis-based idempotency layer so retried agent and pipeline requests never double-process.",
       "Hardened a browser-based candidate assessment pipeline (webcam and microphone capture to a facial-analysis service), fixing camera-constraint and audio-signal issues in production.",
       "Researched Indian compliance for the product launch (DPDP Act, RPWD Act accessibility) and handled SEO.",
+      "Worked in Agile sprints tracked in Jira on a production AI product.",
     ],
   },
   {
@@ -164,10 +170,11 @@ export const experience: {
     role: "Software Developer Intern",
     org: "Apprely Technologies",
     points: [
-      "Led a team of 8 building the Solapur Municipal Corporation complaints system, from API design to production.",
+      "Built the Solapur Municipal Corporation complaints system end to end, from API design to production deployment.",
       "Built NestJS + TypeORM + PostgreSQL REST APIs with JWT and OTP login, role-based guards and file uploads, plus a React Admin panel for staff.",
       "Built the public website with Next.js, Tailwind CSS, shadcn/ui and Material UI.",
       "Deployed to the client's on-premises Windows server (Docker on WSL2, Nginx reverse proxy, wildcard SSL) and wrote the deployment runbook.",
+      "Worked in Agile sprints tracked in Jira; documented the APIs with Swagger and tested them with Postman.",
     ],
   },
   {

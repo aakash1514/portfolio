@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProject, projects } from "@/content/projects";
+import { getProject, isLive, isPaused, projects } from "@/content/projects";
 import { Pipeline } from "@/components/pipeline";
-import { ArrowIcon, ButtonLink, Chip, Container, GitHubIcon, Label } from "@/components/ui";
+import { ButtonLink, Chip, Container, GitHubIcon, Label, PlayIcon } from "@/components/ui";
+import { VideoEmbed } from "@/components/video-embed";
 
 // Only the slugs in projects.ts exist; anything else is a 404.
 export const dynamicParams = false;
@@ -75,6 +76,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
   const showRepo = project.repo?.public;
   const screenshots = project.media?.screenshots ?? [];
   const video = project.media?.video;
+  const paused = isPaused(project);
 
   // Optional sections drop out when empty; labels are numbered from whatever remains.
   const sections: { title: string; body: React.ReactNode }[] = [];
@@ -83,22 +85,31 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
       title: "Demo",
       body: (
         <>
+          {video && <VideoEmbed url={video} title={`${project.title} demo video`} />}
           {screenshots.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <ul className={`grid gap-4 sm:grid-cols-2 ${video ? "mt-6" : ""}`}>
               {screenshots.map((s) => (
-                <figure key={s.src} className="relative aspect-video overflow-hidden rounded-2xl border border-line bg-surface">
-                  <Image src={s.src} alt={s.alt} fill sizes="(min-width: 640px) 360px, 100vw" className="object-contain" />
-                </figure>
+                <li key={s.src}>
+                  <a
+                    href={s.src}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group relative block aspect-[2/1] overflow-hidden rounded-2xl border border-line bg-surface transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    <Image
+                      src={s.src}
+                      alt={s.alt}
+                      fill
+                      sizes="(min-width: 768px) 360px, (min-width: 640px) 45vw, 100vw"
+                      className="object-cover object-top"
+                    />
+                    <span className="sr-only"> (opens full size in a new tab)</span>
+                  </a>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-          {video && (
-            <div className={screenshots.length > 0 ? "mt-6" : undefined}>
-              <ButtonLink href={video} external>
-                Watch demo video <ArrowIcon />
-              </ButtonLink>
-            </div>
-          )}
+          {screenshots.length > 0 && <p className="mt-3 text-sm text-faint">Select a screenshot to open it full size.</p>}
         </>
       ),
     });
@@ -195,15 +206,26 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[slug
         <p className="mt-4 text-lg leading-relaxed text-muted">{project.tagline}</p>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
+          {/* While paused, the demo video is the main call to action. */}
+          {paused && video && (
+            <ButtonLink href={video} variant="primary" external>
+              <PlayIcon /> Watch demo
+            </ButtonLink>
+          )}
           {showRepo && (
-            <ButtonLink href={project.repo!.url} variant="primary">
+            <ButtonLink href={project.repo!.url} variant={paused && video ? "ghost" : "primary"}>
               <GitHubIcon /> View code
             </ButtonLink>
           )}
-          {project.live && <ButtonLink href={project.live}>Live demo</ButtonLink>}
+          {isLive(project) && <ButtonLink href={project.live!}>Live demo</ButtonLink>}
           {project.repo && !showRepo && <Chip>Repo going public soon</Chip>}
           {project.note && <Chip>{project.note}</Chip>}
         </div>
+        {paused && (
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-faint">
+            Deployed on AWS. Paused to save cloud costs; I can bring it back up for a live walkthrough in an interview.
+          </p>
+        )}
 
         <dl className="mt-10 grid grid-cols-2 gap-6 sm:grid-cols-3">
           {project.metrics.map((m) => (

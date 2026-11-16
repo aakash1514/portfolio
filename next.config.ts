@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    // YouTube thumbnails for the click-to-load demo video embeds.
+    remotePatterns: [new URL("https://i.ytimg.com/vi/**")],
+  },
   turbopack: {
     rules: {
       "*.css": {

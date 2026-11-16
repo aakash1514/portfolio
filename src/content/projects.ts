@@ -25,16 +25,28 @@ export type Project = {
   stack: string[];
   /** Set public: true once the repo is public; the GitHub button only shows then. */
   repo?: { url: string; public: boolean };
-  /** Set when a live demo exists; the button is hidden while empty. */
+  /** Set when a live demo exists; the button is hidden while empty or while status is "paused". */
   live?: string;
+  /**
+   * "paused": the deployment is switched off to save cloud costs. The live link and Live badge
+   * are hidden (the URL above is kept), and the demo video becomes the main call to action.
+   * Set back to "live" (or remove) to restore the live link.
+   */
+  status?: "live" | "paused";
   note?: string;
   /** Where and how it runs; shown as a "Deployment" section after Results. */
   deployment?: { label: string; detail: string }[];
   /** 2–4 key design decisions; shown after Architecture. */
   decisions?: { choice: string; alternative: string; why: string }[];
-  /** Screenshots (files in /public) and a demo video link; nothing renders while empty. */
+  /** Screenshots (files in /public) and a YouTube demo link; nothing renders while empty. */
   media?: { screenshots?: { src: string; alt: string }[]; video?: string };
 };
+
+/** True when the live demo link should be shown. */
+export const isLive = (p: Project) => Boolean(p.live) && p.status !== "paused";
+
+/** True when the project's deployment is paused and the demo video stands in for it. */
+export const isPaused = (p: Project) => p.status === "paused";
 
 export const projects: Project[] = [
   {
@@ -44,9 +56,9 @@ export const projects: Project[] = [
     period: "Oct 2026 – Nov 2026",
     tagline: "LLMs interpret, code decides, a human approves: a fail-closed AI trading decision system.",
     metrics: [
-      { value: "0 / 1,790", label: "backtest–live decision mismatches" },
+      { value: "0 / 1,790", label: "backtest–live mismatches over H1 clock closes" },
       { value: "95%", label: "LLM eval sign accuracy (42 / 44)" },
-      { value: "98%", label: "test coverage on the core packages" },
+      { value: "98.7%", label: "test coverage on the core packages" },
     ],
     problem:
       "LLMs read macro text such as central-bank statements, rate gaps and events well, but they aren't calibrated for numbers, can invent them, and can be steered by injected text. A trading system that lets a model set prices, sizes or stops is untestable and unsafe. QuantAxis uses the LLM only to turn text into bounded scores with citations. Everything numeric is deterministic and tested, every gate fails closed, and a person approves every order. Live and backtest runs share one decision engine.",
@@ -61,7 +73,7 @@ export const projects: Project[] = [
         { name: "Execution", detail: "Re-checks risk, plan hash and kill switch, consumes the token's nonce, then places an idempotent order via the replay broker or the MT5 bridge" },
         { name: "Manage & journal", detail: "Every 60 s under an account lock: TP1 partial → breakeven → reconcile. Outbox → Redis Streams → WebSocket UI; closed trades get a grounded LLM review" },
       ],
-      note: "14 services in Docker Compose locally, with OpenTelemetry → Jaeger, Prometheus → Grafana and LangSmith on the LLM graphs. The public demo runs 5 of them.",
+      note: "14 services in Docker Compose locally, with OpenTelemetry → Jaeger, Prometheus → Grafana and LangSmith on the LLM graphs. The public demo serves only the database, Redis, the API and the SPA.",
     },
     decisions: [
       {
@@ -110,7 +122,7 @@ export const projects: Project[] = [
         problem:
           "The live LangGraph pipeline and the bar-by-bar backtester each had their own gate logic. Separately, re-running a pinned config gave 18 trades instead of 13, because cached config was read before the config files were swapped.",
         fix: "Gate steps and pending-setup resolution moved into one shared qa_core.decision module, each run parses one config snapshot, and runs are compared by a results hash over trades, summary, gates and costs only.",
-        verified: "A parity test over 1,790 decision points and 5 scenarios shows 0 mismatches, and the train re-run reproduces its results hash (13 trades).",
+        verified: "A parity test over 1,790 H1 clock closes and 5 scenarios shows 0 mismatches, and the train re-run reproduces its results hash (13 trades).",
       },
       {
         title: "A prompt injection that passed every validator",
@@ -121,29 +133,55 @@ export const projects: Project[] = [
       },
     ],
     results: [
-      { label: "Backtest–live parity", value: "1,790 decision points, 5 scenarios, 0 mismatches" },
+      { label: "Backtest–live parity", value: "1,790 H1 clock closes, 5 scenarios, 0 mismatches" },
       { label: "LLM eval (30 cases, prompt v5)", value: "pass 28/30 (93%), sign accuracy 42/44 (95%), stable pair decisions 14/21 (67%)" },
       { label: "Prompt-injection cases", value: "5 / 6 pass" },
-      { label: "Python tests", value: "1,846 collected; 1,147 passed, 0 failed in the no-DB run; 98% coverage on the core" },
+      { label: "Backtest, train 2015–2019", value: "13 trades, win rate 30.8%, net −$204.74, profit factor 0.55, max DD 2.05%" },
+      { label: "Backtest, test 2020–2022 (run once)", value: "13 trades, win rate 53.8%, net +$32.33, profit factor 1.08, max DD 2.97%" },
+      { label: "End-to-end replay", value: "265 H1 closes, 425 decision runs; the approved XAUUSD short filled and exited exactly as in the backtest" },
+      { label: "Python tests", value: "1,871 passed, 2 skipped; 98.68% coverage on qa_core, engine and agents (gate 85%)" },
+      { label: "SPA tests", value: "58 passed" },
       { label: "Static checks", value: "mypy strict: 0 issues in 419 files; 9 / 9 import-linter contracts kept" },
       { label: "LLM latency", value: "mean 1.69 s per call (32 live calls)" },
       { label: "Public demo load test", value: "k6, 20 users × 2 min: p95 621 ms, 34.2 req/s, 0% errors" },
       { label: "Surface", value: "30 REST endpoints + 1 WebSocket, 19 Celery tasks, 14 services" },
     ],
     caveat:
-      "Backtests have 13 trades per split, too few to show an edge. A forward test has run on an MT5 demo account since 19 Oct 2026, but there aren't enough closed trades to publish. The public demo is a read-only replay snapshot with no workers or LLM calls.",
+      "Each backtest split has 13 trades, below the 30 needed to call a result meaningful; the test split is roughly break-even after costs. It shows the pipeline runs end to end, not that it has an edge. The MT5 demo forward test has been paused since 20 Oct 2026, with too few closed trades to publish. The public demo is a read-only replay snapshot with no workers or LLM calls.",
     deployment: [
       { label: "Provider", detail: "AWS ap-south-1 (Mumbai), public read-only demo" },
-      { label: "Compute", detail: "One EC2 t3.small running Docker Compose: db, redis, migrate, web and spa (no workers, LLM calls or tracing)" },
-      { label: "Images & config", detail: "ECR with immutable tags; config and secrets in SSM Parameter Store; Session Manager instead of SSH" },
-      { label: "TLS & ops", detail: "Let's Encrypt via certbot; CloudWatch Logs; daily EBS snapshots" },
-      { label: "CI/CD", detail: "GitHub Actions: lint, mypy, tests and a compose smoke test on every push; evals on path changes; manual deploy via OIDC → ECR → SSM Run Command" },
-      { label: "Trading", detail: "The MT5 forward test runs locally (WSL2 + Windows bridge), not on AWS" },
+      { label: "Compute", detail: "One EC2 t3.small running Docker Compose with only the database, Redis, the API and the SPA (no workers, LLM calls or tracing)" },
+      { label: "Database", detail: "TimescaleDB in a container on the instance, because RDS doesn't offer the TimescaleDB extension" },
+      { label: "Images & config", detail: "ECR with immutable tags; config and secrets in SSM Parameter Store; Session Manager only, port 22 closed" },
+      { label: "TLS & ops", detail: "Let's Encrypt, renewed automatically; CloudWatch Logs with 7-day retention; daily EBS snapshots, 7 kept" },
+      { label: "CI/CD", detail: "GitHub Actions: ci on every push and pull request, evals when the agents or evals change, and a one-click deploy that pushes images to ECR via OIDC and updates the host through SSM Run Command" },
+      { label: "Trading", detail: "The MT5 forward test ran locally (WSL2 + Windows bridge), not on AWS; paused since 20 Oct 2026" },
     ],
     stack: ["Python", "Django", "Django Ninja", "Celery", "LangGraph", "LangSmith", "Groq", "MCP", "FinBERT", "TimescaleDB", "Redis", "FastAPI", "MetaTrader 5", "OpenTelemetry", "Prometheus", "Grafana", "React", "TypeScript", "Docker", "AWS"],
     repo: { url: "https://github.com/aakash1514/quantaxis", public: false },
     live: "https://quantaxis.dev",
-    media: {},
+    status: "paused",
+    media: {
+      video: "https://youtu.be/eiLO20cUC7E",
+      screenshots: [
+        {
+          src: "/projects/quantaxis/dashboard.webp",
+          alt: "QuantAxis read-only demo dashboard: replayed XAUUSD and EURUSD prices, empty pending approvals and open positions, the kill switch with Engage and Flatten buttons, and the risk state with equity, daily and weekly loss limits and the loss streak.",
+        },
+        {
+          src: "/projects/quantaxis/xauusd-decision-results.webp",
+          alt: "XAUUSD instrument page with the stored decision results: regime trend down, pair bias −0.270 (short), intermarket confirm, and conviction 72.0 passed with its score breakdown, above the H1 chart.",
+        },
+        {
+          src: "/projects/quantaxis/xauusd-chart-trade-levels.webp",
+          alt: "XAUUSD H1 chart of closed replay bars with the stored entry, stop-loss, invalidation and TP1 levels drawn as horizontal lines.",
+        },
+        {
+          src: "/projects/quantaxis/opportunities-history.webp",
+          alt: "Opportunities history table: XAUUSD and EURUSD sell setups with conviction, trigger and invalidation prices, close time and status (triggered, expired, invalidated or closed at window end).",
+        },
+      ],
+    },
   },
   {
     slug: "code-review-agent",
@@ -204,6 +242,7 @@ export const projects: Project[] = [
       "MCP server with 7 read-only tools, so a developer can review a patch from Claude Code or Cursor before pushing.",
       "A 45-case labelled eval set with a strict scorer, and a CI eval gate on five thresholds.",
       "The whole AWS stack in Terraform, with CloudWatch metrics, 7 alarms and LangSmith tracing.",
+      "A secret-leak audit (gitleaks, trufflehog and an exact-value check for every real secret) over the full history and public surfaces found no leaked values.",
     ],
     hardParts: [
       {
@@ -235,11 +274,13 @@ export const projects: Project[] = [
       { label: "Latency per file (Bedrock)", value: "p50 5.5 s, p95 10.9 s" },
       { label: "LLM cost", value: "$0.0017 per reviewed file" },
       { label: "Injection guardrail", value: "5 / 8 caught, 0 / 37 false positives" },
+      { label: "Early production (N = 4 PRs)", value: "4 / 4 completed, 0 fallbacks; median about 50 s per PR; $0.0095 LLM cost per PR" },
       { label: "Tests", value: "597 passed with the network blocked, 84% app line coverage" },
     ],
-    caveat: "Every eval number comes from a single run, so differences of 1–2 issues are noise. The call graph parses Python only.",
+    caveat:
+      "Every eval number comes from a single run, so differences of 1–2 issues are noise. Production usage is 4 PRs, too few for headline claims. The call graph parses Python only.",
     deployment: [
-      { label: "Provider", detail: "AWS ap-south-1 (Mumbai), defined in Terraform (50 resource blocks)" },
+      { label: "Provider", detail: "AWS ap-south-1 (Mumbai), defined in Terraform: 50 resource blocks, 63 resources on apply; state in S3 with native locking" },
       { label: "Edge", detail: "CloudFront serves the dashboard from private S3 and forwards API, WebSocket and webhook paths to an ALB that only accepts CloudFront" },
       { label: "Compute", detail: "ECS Fargate, 1 task (0.5 vCPU / 1 GB); SQLite and call-graph JSON on EFS" },
       { label: "AI services", detail: "Amazon Bedrock (gpt-oss, Titan embeddings, Guardrails), Qdrant Cloud, Groq as fallback" },
@@ -250,7 +291,28 @@ export const projects: Project[] = [
     stack: ["Python", "FastAPI", "Amazon Bedrock", "Qdrant", "Groq", "LangSmith", "MCP", "SQLite", "React", "Monaco", "React Flow", "Terraform", "AWS ECS Fargate", "Docker", "GitHub Actions"],
     repo: { url: "https://github.com/aakash1514/code-review-agent", public: true },
     live: "https://d1ngkk9hkqym35.cloudfront.net",
-    media: {},
+    status: "paused",
+    media: {
+      video: "https://youtu.be/gDpw28_ASEg",
+      screenshots: [
+        {
+          src: "/projects/code-review-agent/review-dashboard.webp",
+          alt: "Review dashboard for PR #1 on a test repo: tabs for the security, architecture, test coverage and documentation agents, and three HIGH architecture findings with the quoted code and a suggested fix; the PR is marked manually approved.",
+        },
+        {
+          src: "/projects/code-review-agent/merge-blocked-by-guardrail.webp",
+          alt: "GitHub pull request where the bot reports one CRITICAL issue, a possible prompt injection flagged by Bedrock Guardrails with the file quarantined for a human, and the failed ai-code-review check that blocks the merge.",
+        },
+        {
+          src: "/projects/code-review-agent/mcp-review-patch.webp",
+          alt: "Claude Code terminal calling the review_patch MCP tool on an f-string SQL query: the JSON result shows would_block true and one critical SQL-injection finding.",
+        },
+        {
+          src: "/projects/code-review-agent/langsmith-trace.webp",
+          alt: "LangSmith trace of one review: guardrail screens, then the security, test coverage, architecture and documentation agents, each with its Bedrock gpt-oss call, duration and token count.",
+        },
+      ],
+    },
   },
   {
     slug: "forexedge",
@@ -258,72 +320,141 @@ export const projects: Project[] = [
     kind: "Microservices · LLM agent",
     period: "May 2026 – Jul 2026",
     tagline:
-      "A forex paper-trading platform on 19M real minute bars, with a backtester verified to the cent and a research agent whose numbers are machine-checked.",
+      "A forex paper-trading platform on 19M real minute bars, with a backtester and bar replay reproduced to the cent and a research agent whose every number is machine-checked.",
     metrics: [
-      { value: "19.2M", label: "real minute bars" },
-      { value: "689 / 689", label: "trades reproduced in SQL" },
+      { value: "19.2M", label: "real one-minute bars" },
+      { value: "689 / 689", label: "trades reproduced to the cent" },
       { value: "9 / 10", label: "research agent live eval" },
     ],
     problem:
-      "Retail trading tools often show numbers nobody can check: simulated prices, backtests you can't audit, and AI answers with made-up figures. ForexEdge only presents numbers it can prove: history validated against FRED, backtests reproduced independently in SQL, and every LLM figure checked by code against real tool results.",
+      "Trading tools often show numbers nobody can check: simulated prices that look like market data, backtests you can't audit, and AI answers with made-up figures. ForexEdge only shows numbers it can back up: 13 years of real minute history validated against FRED, a backtester and bar replay reproduced to the cent by independent checks, an LSTM evaluation that reports its weak result, and a research agent whose every number is checked by code against real tool results.",
     architecture: {
       title: "Services",
       steps: [
-        { name: "market-service", detail: "Ticks → Kafka → TimescaleDB + Redis latest price" },
-        { name: "order-service", detail: "Gates: instrument → market open → spread → SL/TP → margin → risk; events after commit" },
-        { name: "domain-service", detail: "Pip value, margin, swaps, session clock, spread monitor, FOMC/ECB calendar" },
-        { name: "ws-gateway", detail: "Socket.IO live P&L + BullMQ backtester → MinIO" },
-        { name: "ml-service", detail: "Walk-forward LSTM evaluation, read-only API" },
-        { name: "research-agent", detail: "LangGraph ↔ Groq gpt-oss-120b, 7 MCP tools, deterministic verifier" },
+        { name: "Caddy", detail: "One HTTPS origin in production; routes each path prefix to its service" },
+        { name: "market-service", detail: "Live feed per MARKET_FEED (none by default; mock is always labelled), publishes forex.ticks to Kafka, serves candles from TimescaleDB" },
+        { name: "order-service", detail: "Paper broker: validates orders against live ticks, spread and market hours; SL/TP and stop-out; publishes order, position and account events" },
+        { name: "domain-service", detail: "Pip value, margin, swaps, session clock, spread monitor, FOMC and ECB calendar" },
+        { name: "ws-gateway", detail: "Socket.IO relay for ticks and per-user events; hosts the BullMQ backtest engine, with results in S3" },
+        { name: "replay-service", detail: "Bar replay over 2010–2022 on a server-owned clock; its own DB login, no Kafka" },
+        { name: "ml-service + research-agent", detail: "Python FastAPI: walk-forward LSTM inference, and a LangGraph agent over 7 read-only MCP tools with a deterministic verifier" },
       ],
-      note: "Plus auth-service and a Next.js frontend. Nx monorepo; Kafka in KRaft mode.",
+      note: "Plus auth-service (JWT, Argon2) and a Next.js trading terminal. Nx monorepo with 8 backend services; Kafka in KRaft mode; TimescaleDB, Redis and S3 (MinIO locally).",
     },
+    decisions: [
+      {
+        choice: "One trading-rules library shared by the backtester and the replay",
+        alternative: "Separate fill logic in each",
+        why: "Fills, SL/TP exits, USD money, commission and mark-to-market live in @forexedge/trading-sim, a pure library on integer points, so the replay can be checked against the verified backtest trades to the cent.",
+      },
+      {
+        choice: "A verifier with no LLM checks every number",
+        alternative: "Trusting the model's figures",
+        why: "Every number must match a unit-suffixed field of a real tool result. After one failed retry the answer is “could not verify” and the unverified text is never shown.",
+      },
+      {
+        choice: "No live price feed by default",
+        alternative: "Showing simulated prices as if they were market data",
+        why: "There is no licensed live feed. MARKET_FEED=none disables order entry; mock prices are labelled “SIMULATED PRICES — not market data” everywhere, and any other value fails startup.",
+      },
+      {
+        choice: "The server owns the replay clock",
+        alternative: "Letting the client play back history it already holds",
+        why: "History is only completed bars, and every payload is checked so that nothing after the clock is ever sent: no look-ahead.",
+      },
+    ],
     built: [
-      "Real Dukascopy minute-level bid/ask history for EUR/USD, GBP/USD, USD/JPY and XAU/USD (2010–2022), with M5 to D1 rollups and validation against FRED.",
-      "Seven backend services in an Nx monorepo (5 NestJS, 2 Python) plus a Next.js frontend.",
-      "Paper trading with SL/TP, stop-out, and gates for instrument, market hours, spread, margin and risk limits.",
-      "Price safety: with no live feed, order entry is disabled; simulated prices appear only when switched on and are labelled SIMULATED.",
-      "BullMQ backtester (MA crossover, London breakout) reporting USD equity, drawdown and Sharpe, with a SQL verification command.",
-      "LangGraph research agent over a FastMCP server with 7 read-only tools, a least-privilege database login and per-user scoping.",
-      "Frontend pages: trading terminal, backtest, economic calendar, model evaluation and research.",
+      "19,187,987 real one-minute bid/ask bars for EUR/USD, GBP/USD, USD/JPY and XAU/USD (2010–2022), stored as exact integer points in TimescaleDB (7.5× compression) with M5, M15, H1, H4 and D1 continuous aggregates.",
+      "Eight backend services in an Nx monorepo (6 NestJS, 2 Python FastAPI) over Kafka, plus a Next.js trading terminal behind one Caddy origin.",
+      "Paper trading on a simulated broker: orders validated against live ticks, spread and market hours, SL/TP and stop-out; JWT access and refresh tokens with Argon2 hashing.",
+      "BullMQ backtester that fills at the next bar's open on the real bid/ask and reports USD equity, drawdown and a daily New York-close Sharpe, plus an independent SQL verification command.",
+      "Bar replay of the 2010–2022 history on 1m to 1d bars (play, pause or step at 0.5–2 s per bar) on a separate replay account.",
+      "Walk-forward LSTM next-hour direction models per pair (7 expanding folds, test years 2016–2022) with a decision rule fixed before training, served read-only.",
+      "LangGraph research agent over an MCP server of 7 read-only tools, with a deterministic number verifier, its own read-only DB login and per-request budgets.",
+      "Terraform on AWS and GitHub Actions CI/CD with OIDC, pre-deploy database dumps and automatic rollback.",
+      "Frontend pages: trading terminal, backtest, replay, economic calendar, model evaluation and research.",
     ],
     hardParts: [
       {
         title: "Stopping the LLM from inventing numbers",
         problem: "An LLM summarising market data can make numbers up, and they look identical to real ones.",
-        fix: "The agent must finish with a submit_report tool call where every claim cites a tool call. A plain-code verifier checks each number against the real tool result (prices rounded to the pair's decimals, USD exact); one retry, then “could not verify”.",
-        verified: "A 10-question live eval with independently computed answers scored 8/10, 9/10 and 9/10, with no per-question tuning.",
+        fix: "The answer must be a structured report. A verifier with no LLM checks every number against a unit-suffixed field of a real tool result: prices at the pair's decimals, percentages to at least 3 significant digits, counts and USD exact. After one failed retry the response is “could not verify”.",
+        verified: "A 10-question live eval with independently computed expectations scored 8/10, 9/10 and 9/10. Run 1's misses came from the eval's own number check; run 3's was a provider HTTP 400 that ended in “could not verify”.",
       },
       {
-        title: "Backtester reproduced to the cent",
-        problem: "Floating-point ties fired crossovers one bar early, an end date dropped the last day, and pip-based drawdown showed 93% for gold.",
-        fix: "Exact integer prefix sums, inclusive calendar days, and USD equity marked to market at every bar.",
-        verified: "An independent SQL reproduction from the raw minute table matches every trade and metric: 689 of 689 across EUR/USD, XAU/USD and USD/JPY.",
+        title: "Proving the backtester is right",
+        problem: "A backtest is only useful if its trades and money are right, and the backtester can't check itself.",
+        fix: "backtest:verify submits runs through the real API and reproduces each one from the raw minute table in independent SQL, without the backtester's code, comparing money in cents.",
+        verified: "MA crossover 10/30 on H1, 2022: every trade and metric match exactly. EUR/USD 257 trades (−$272.20), XAU/USD 217 (−$555.92), USD/JPY 215 (+$1,485.75).",
       },
       {
-        title: "Kafka consumers trusting fields nobody sent",
-        problem: "The spread gate never blocked an order because it read a field the producer never sent, and treated “missing” as “allow”.",
-        fix: "Typed, validating message contracts per topic, a shared market clock, and a spread gate based on each instrument's average spread.",
-        verified: "Tests run on captured real Kafka messages.",
+        title: "Bar replay without look-ahead",
+        problem: "A replay that sends data past its clock leaks the future, and its fills have to match the backtester's.",
+        fix: "The server owns the clock: the current bar is rebuilt from minutes up to the clock, history is only completed bars, and every payload is checked. Orders fill at the next minute's open, with SL/TP checked minute by minute through the shared trading-sim library.",
+        verified: "replay:verify replays the 689 verified backtest trades through the running service and all match to the cent. The database refuses any write from replay-service to the history tables.",
+      },
+      {
+        title: "Deploys that roll themselves back",
+        problem: "A release that fails its readiness checks must not leave the single production host broken.",
+        fix: "deploy.sh takes a pre-deploy database dump, runs backward-compatible migrations, switches the release and checks every service's readiness; a failed check rolls back to the previous release.",
+        verified: "A rollback drill (simulate_failure) proved it. restore-test.sh restores the newest dump into a scratch database and compares row counts, and planted-faults.sh catches 143 of 143 planted infrastructure faults.",
       },
     ],
     results: [
-      { label: "Data", value: "19.2M bars, median 0.4–1.6 pips vs FRED, 7.5× compression" },
-      { label: "Backtest verification", value: "689 / 689 trades match independent SQL" },
-      { label: "Research agent", value: "9/10 live eval, 1.5–6.5K tokens per question" },
-      { label: "ML", value: "51.6–51.8% accuracy, below spread break-even" },
-      { label: "Tests", value: "590 Jest + 198 pytest, 18 Nx projects passing" },
+      { label: "Data", value: "19,187,987 minute bars; FRED noon fixings agree to a median 0.40–1.60 pips in every pair-year; 3 gold extremes within $2.30" },
+      { label: "Backtest verification", value: "689 / 689 trades match independent SQL, money to the cent" },
+      { label: "Replay verification", value: "689 / 689 verified trades match to the cent" },
+      { label: "LSTM (7 walk-forward folds)", value: "pooled accuracy 51.63–51.84%; beats 9 of 16 baseline comparisons but never anti-persistence; below spread break-even (53.24–60.18%) for all four pairs" },
+      { label: "Research agent live eval", value: "8/10, 9/10, 9/10 over three runs" },
+      { label: "Infrastructure checks", value: "143 planted faults caught, 0 missed" },
+      { label: "Deploy pipeline", value: "10 image builds, then the deploy job: 12 min 31 s" },
     ],
-    caveat: "The LSTM doesn't beat trading costs, and the platform says so instead of hiding it.",
-    stack: ["NestJS", "TypeScript", "Nx", "Kafka", "TimescaleDB", "Redis", "BullMQ", "Socket.IO", "MinIO", "Next.js", "Python", "PyTorch", "LangGraph", "MCP", "Groq"],
+    caveat:
+      "Paper trading only: orders fill on a simulated broker and there is no licensed live price feed. The LSTM doesn't cover the spread, and the platform presents it as a historical test, not a signal. The agent eval has 10 questions.",
+    deployment: [
+      { label: "Provider", detail: "AWS ap-south-1 (Mumbai), built with Terraform" },
+      { label: "Compute", detail: "One EC2 t3.medium (IMDSv2 only, encrypted root volume, no key pair) running Docker Compose behind Caddy on one HTTPS origin" },
+      { label: "Images & storage", detail: "ECR with immutable tags and scan on push; private, encrypted, TLS-only S3 buckets for backtest results and backups" },
+      { label: "Access", detail: "No SSH: only HTTP and HTTPS open, the host is reached through SSM, and only ws-gateway can reach the instance metadata service" },
+      { label: "Monitoring", detail: "CloudWatch alarms (CPU, CPU credits, status check, memory, disk) by email; daily root-volume snapshots" },
+      { label: "CI/CD", detail: "CI on every pull request (lint, typecheck, test and build, ruff, mypy, pytest, offline infra checks); CD on every push to main via OIDC, with automatic rollback" },
+    ],
+    stack: ["NestJS", "TypeScript", "Nx", "Kafka", "TimescaleDB", "Redis", "BullMQ", "Socket.IO", "Next.js", "Redux Toolkit", "Python", "PyTorch", "FastAPI", "LangGraph", "MCP", "Groq", "Terraform", "AWS", "Docker", "Caddy", "GitHub Actions"],
     repo: { url: "https://github.com/aakash1514/algo_trading_forex", public: false },
+    live: "https://forexedge.tech",
+    status: "paused",
+    media: {
+      video: "https://youtu.be/Q_-vPWzzyYE",
+      screenshots: [
+        {
+          src: "/projects/forexedge/replay-closed-trades.webp",
+          alt: "Bar replay of EUR/USD H1 at 2022-03-07 18:59 UTC: the candle chart, playback and speed controls, a market order panel with bid and ask, the replay account balance, and closed trades with take-profit, stop-loss and manual exits and their net P&L.",
+        },
+        {
+          src: "/projects/forexedge/backtest-result.webp",
+          alt: "Backtest page: an MA crossover run on EUR/USD H1 from 3 to 31 Jan 2022, with net P&L +$282.80, 1.06% max drawdown, Sharpe ratio, win rate, profit factor and 15 trades.",
+        },
+        {
+          src: "/projects/forexedge/research-verified-answer.webp",
+          alt: "Research agent answer marked VERIFIED: the 2020 XAU/USD high of 2075.362 on 2020-08-06, with the claim, value and unit, the data used, and the get_market_stats tool call it was checked against.",
+        },
+        {
+          src: "/projects/forexedge/lstm-evaluation.webp",
+          alt: "Model evaluation table: pooled 2016–2022 LSTM accuracy for each pair against logistic, majority, persistence and anti-persistence baselines, with raw and Holm p-values and a verdict of LSTM better or no evidence of a difference.",
+        },
+        {
+          src: "/projects/forexedge/trading-terminal-no-feed.webp",
+          alt: "Trading terminal with no live market feed: an empty chart, a banner linking to the historical replay, and the order panel showing order entry disabled.",
+        },
+      ],
+    },
   },
   {
     slug: "agriflow",
     title: "AgriFlow",
     kind: "Full-stack · ML",
     period: "Oct 2025 – Feb 2026",
-    tagline: "Farm-to-buyer crop marketplace with ML price forecasts, online payments and live AWS deployment.",
+    tagline: "Farm-to-buyer crop marketplace with ML price forecasts, online payments and an AWS deployment.",
     metrics: [
       { value: "21×", label: "faster p95 on admin orders" },
       { value: "38.7% → 0%", label: "error rate at 50 users" },
@@ -410,16 +541,42 @@ export const projects: Project[] = [
       "Before/after numbers are k6 runs on localhost against a seeded database (10,000 orders, 50 users, median of 3). The production run was 3 minutes of light load (10 users plus 1 prediction per second) from one laptop. Payments run in Razorpay test mode.",
     deployment: [
       { label: "Provider", detail: "AWS ap-south-1 (Mumbai)" },
-      { label: "Web", detail: "React build on S3, served by CloudFront at agriflow.me" },
-      { label: "API & ML", detail: "One EC2 instance running Docker Compose: Nginx (Let's Encrypt), the Express API and the Flask ML service, with health checks and memory limits" },
-      { label: "Data", detail: "RDS PostgreSQL over verified TLS; private S3 buckets for uploads and models" },
-      { label: "Secrets & logs", detail: "SSM Parameter Store → env file at deploy time; CloudWatch Logs for all 3 containers" },
+      { label: "Web", detail: "React build on S3, served by CloudFront at agriflow.me with an ACM certificate" },
+      { label: "API & ML", detail: "One EC2 t3.small running Docker Compose: Nginx (Let's Encrypt), the Express API and the Flask ML service, with health checks and memory limits; api.agriflow.me via Route 53" },
+      { label: "Data", detail: "RDS PostgreSQL 18, not publicly accessible, over verified TLS; ML models loaded from S3 at startup" },
+      { label: "Images", detail: "Private S3 bucket filled by presigned POST, served through CloudFront at /uploads/*" },
+      { label: "Secrets & access", detail: "SSM Parameter Store → env file at deploy time; CloudWatch Logs for all 3 containers; EC2 managed through Session Manager, no SSH" },
       { label: "CI/CD", detail: "GitHub Actions via OIDC: the backend deploys through SSM Run Command, waits for healthy containers and checks /api/health; the frontend syncs to S3 and invalidates CloudFront" },
     ],
     stack: ["Node.js", "Express", "PostgreSQL", "React", "TypeScript", "Expo", "Python", "Flask", "scikit-learn", "XGBoost", "Razorpay", "Docker", "Nginx", "AWS", "GitHub Actions", "k6"],
     repo: { url: "https://github.com/aakash1514/Major_prj", public: true },
     live: "https://agriflow.me",
-    media: {},
+    status: "paused",
+    media: {
+      video: "https://youtu.be/GBNkDY_mssM",
+      screenshots: [
+        {
+          src: "/projects/agriflow/farmer-dashboard.webp",
+          alt: "AgriFlow farmer dashboard: a welcome banner with an Add New Crop button, the demand outlook for the farmer's primary crop, counts of total, pending, approved and rejected crops, and a performance overview with orders and revenue.",
+        },
+        {
+          src: "/projects/agriflow/price-demand-prediction.webp",
+          alt: "Prediction page for 500 kg of onions in summer in the West region: the price estimate (₹9,248.33 modal, with the min and max model outputs) beside the demand estimate.",
+        },
+        {
+          src: "/projects/agriflow/admin-crop-submissions.webp",
+          alt: "Admin crop submissions page: counts by status, search and status filters, and crop cards showing quantity, harvest date, the farmer's price next to the AI price estimate, and List on Marketplace buttons.",
+        },
+        {
+          src: "/projects/agriflow/buyer-marketplace.webp",
+          alt: "Buyer marketplace: a Market Insights panel with predicted demand, search, sort and filters, and a grid of listed crops with photos.",
+        },
+        {
+          src: "/projects/agriflow/razorpay-checkout.webp",
+          alt: "Razorpay checkout in test mode over the marketplace: a ₹2,500 price summary with card, netbanking and wallet payment options.",
+        },
+      ],
+    },
   },
   {
     slug: "smc-complaints",
@@ -428,10 +585,7 @@ export const projects: Project[] = [
     period: "Feb – Jun 2026",
     tagline:
       "A complaints platform for the Solapur Municipal Corporation, built and deployed end to end during my Apprely internship.",
-    metrics: [
-      { value: "8", label: "people on the team I led" },
-      { value: "On-prem", label: "production deployment" },
-    ],
+    metrics: [{ value: "On-prem", label: "production deployment" }],
     problem:
       "Citizens had no simple way to raise and track civic complaints, and staff had no single place to assign and resolve them.",
     architecture: {
