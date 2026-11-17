@@ -1,9 +1,15 @@
 import { Fragment } from "react";
+import type { Metadata } from "next";
 import { projects } from "@/content/projects";
 import { experience, site, skills, tagline } from "@/content/site";
 import { CopyEmail } from "@/components/copy-email";
 import { ProjectCard } from "@/components/project-card";
 import { ArrowIcon, ButtonLink, Chip, Container, GitHubIcon, Label } from "@/components/ui";
+
+// Set here rather than in the layout so other routes (e.g. the 404) don't inherit it.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const proof = [
   { value: "0 / 1,790", label: "backtest–live mismatches over H1 clock closes (QuantAxis)" },

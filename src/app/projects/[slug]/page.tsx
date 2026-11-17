@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProject, isLive, isPaused, projects } from "@/content/projects";
+import { site } from "@/content/site";
+import { alt as ogAlt, size as ogSize } from "@/app/opengraph-image";
 import { Pipeline } from "@/components/pipeline";
 import { ButtonLink, Chip, Container, GitHubIcon, Label, PlayIcon } from "@/components/ui";
 import { VideoEmbed } from "@/components/video-embed";
@@ -18,7 +20,24 @@ export async function generateMetadata({ params }: PageProps<"/projects/[slug]">
   const { slug } = await params;
   const project = getProject(slug);
   if (!project) return {};
-  return { title: project.title, description: project.tagline };
+  const path = `/projects/${project.slug}`;
+  // Setting openGraph here drops the root opengraph-image, so reference it explicitly.
+  const image = { url: "/opengraph-image", alt: ogAlt, ...ogSize };
+  return {
+    title: project.title,
+    description: project.tagline,
+    alternates: { canonical: path },
+    // openGraph is replaced (not merged) per segment, so repeat the layout's shared fields.
+    openGraph: {
+      title: `${project.title} · ${site.name}`,
+      description: project.tagline,
+      url: path,
+      siteName: site.name,
+      type: "article",
+      images: [image],
+    },
+    twitter: { card: "summary_large_image", images: [image] },
+  };
 }
 
 function Section({ label, title, children }: { label: string; title: string; children: React.ReactNode }) {
